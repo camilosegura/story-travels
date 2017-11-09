@@ -1,4 +1,5 @@
 const express = require('express');
+const session = require('express-session');
 const mongoose = require('mongoose');
 const passport = require('passport');
 const path = require('path');
@@ -7,13 +8,24 @@ const logger = require('morgan');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 
+require('./models/User');
 require('./config/passport')(passport);
+
+const keys = require('./config/keys');
 
 const index = require('./routes/index');
 const users = require('./routes/users');
 const auth = require('./routes/auth');
 
 const app = express();
+
+mongoose.Promise = global.Promise;
+
+mongoose.connect(keys.mongoURI, {
+  useMongoClient: true
+})
+  .then(() => console.log('MongoDB Connected'))
+  .catch(err => console.error(err));
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -25,7 +37,18 @@ app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(session({
+  secret: 'secret',
+  resave: false,
+  saveUninitialized: false
+}));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(passport.initialize());
+app.use(passport.session());
+app.use((req, res, next) => {
+  res.locals.user = req.user || null;
+  next();
+})
 
 app.use('/', index);
 app.use('/users', users);
